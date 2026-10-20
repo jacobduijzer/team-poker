@@ -30,6 +30,48 @@ The SQL Editor is just a one-time way to apply the included setup file. If you a
 
 ## 2. Run locally
 
+### Docker (no Node.js or npm installation needed)
+
+Requires Docker. Complete the Supabase setup above, then:
+
+```sh
+cp .env.example .env
+```
+
+Fill in your Supabase URL and publishable key in `.env`, then run:
+
+```sh
+bash scripts/dev-docker.sh
+```
+
+Open **http://localhost:5173**. The container installs dependencies automatically; source changes reload in the browser. Stop with Ctrl+C. This launcher uses a temporary dependency volume that is removed when the container exits. Restart it after editing `.env`.
+
+Supabase still runs in your hosted project—this does not start a local Supabase stack. No Node.js, npm, or Docker Compose installation is needed on your computer.
+
+#### Optional: Docker Compose
+
+If you have Docker Compose (included in Docker Desktop), you can instead run:
+
+```sh
+docker compose up
+```
+
+This uses the same URL and keeps dependencies in a reusable Docker volume, separate from any host `node_modules`.
+
+Stop with Ctrl+C, then `docker compose down`. After editing `.env`, run `docker compose restart app`.
+
+With the app running, checks can also run inside Docker:
+
+```sh
+docker compose exec app npm test
+docker compose exec app npm run typecheck
+docker compose exec app npm run build
+```
+
+Database tests need only Docker and a host shell: `bash scripts/test-db.sh`.
+
+### Node.js
+
 Requires Node.js **22.12+** and npm.
 
 ```sh
