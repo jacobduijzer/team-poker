@@ -11,8 +11,16 @@ Live planning poker without account registration. A presenter creates a table, s
 - Presenter-only reveal, round reset, and ordered score-card configuration.
 - Numeric and custom score labels; votes can change until reveal.
 - Private vote values, shared voting status, and real-time revealed results.
-- Score counts, numeric averages, and nonnumeric modes with ties.
+- Score counts and a final score snapped to the card nearest the average, including ties.
 - Responsive keyboard-accessible interface, connection status, and polling recovery.
+
+### Final scores
+
+The final score is the available card nearest the average, not the raw decimal average or the most frequent vote. Exactly tied nearest cards are both shown, and a card does not need any votes to be the result.
+
+- **Numeric votes:** average actual values and select the nearest numeric card(s). For cards `1–6`, an average of `3.4` gives `3`; `3.5` gives `3 / 4`. Unused custom cards such as `?` are not numeric candidates.
+- **Custom or mixed-label votes:** treat the complete configured card order as equally spaced positions, average the voted positions, and select the nearest card(s). With `S, M, L, XL`, one `S` and one `XL` give `M / L`; two `S`, six `M`, and one `XL` give `M`.
+- Participants who have not voted do not affect the average. Reordering custom cards changes their scale.
 
 ## 1. Create and configure Supabase
 
@@ -132,7 +140,7 @@ GitHub Actions runs the app checks and database tests independently.
 - Verify Bob cannot reveal or configure cards, including by calling the API directly.
 - Reveal as Alice; confirm both clients see every score and matching results.
 - Start another round; confirm all votes clear and old-round writes are rejected.
-- Configure `S, M, L, XL`, reorder the cards, and check tied modes after reveal.
+- Configure `S, M, L, XL`: one `S` and one `XL` vote should give `M / L`. Two `S`, six `M`, and one `XL` should give `M`. Reorder cards and verify custom-label results follow the new order.
 - Create a second session and verify its participants, votes, and results are isolated.
 - Reload the presenter's browser and verify the presenter role persists.
 - Disconnect/reconnect a participant and verify changes catch up. The app polls every ten seconds as a fallback and refreshes on focus/online/re-subscription.

@@ -252,11 +252,11 @@ function CardEditor({ options, busy, onSave }: { options: ScoreOption[]; busy: b
 }
 
 function Results({ session }: { session: PokerSession }) {
-  const { counts, total, average, modes } = summarize(session.round.options, session.participants)
+  const { counts, total, finalScores } = summarize(session.round.options, session.participants)
   return <section className="panel results-panel" aria-labelledby="results-title">
     <div><p className="eyebrow">The big picture</p><h2 id="results-title">A starting point for discussion.</h2><p>{total} {total === 1 ? 'vote' : 'votes'} cast · {session.participants.length - total} didn’t vote</p></div>
     {total === 0 ? <p>No votes this round. Start another round to try again.</p> : <>
-      <div className="result-summary">{average !== null ? <div><span className="stat-value">{new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(average)}</span><span>Average estimate</span></div> : <div><span className="stat-value">{modes.map(({ label }) => label).join(' / ')}</span><span>{modes.length > 1 ? 'Most common scores · tied' : 'Most common score'}</span></div>}</div>
+      <div className="result-summary"><div><span className="stat-value">{finalScores.map(({ label }) => label).join(' / ')}</span><span>{finalScores.length > 1 ? 'Final score · tied' : 'Final score'}</span><small>Closest card to the average. Custom labels use card order.</small></div></div>
       <ul className="distribution" aria-label="Votes per score">{counts.map(({ id, label, count }) => <li key={id}><strong>{label}</strong><div className="bar-track"><div style={{ width: `${count / total * 100}%` }} /></div><span>{count} {count === 1 ? 'vote' : 'votes'}</span></li>)}</ul>
     </>}
   </section>

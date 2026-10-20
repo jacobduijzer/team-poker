@@ -16,7 +16,7 @@ Build a live planning-poker web app for teams. Multiple independent sessions can
 - Everyone can see who has voted, but cannot see hidden vote values.
 - Only the presenter can reveal votes and start another round.
 - Revealing votes shows every participant's name and score to everyone in real time.
-- Results include counts per score, an average for numeric votes, and the most common score for nonnumeric votes.
+- Results include counts per score and the available card nearest the average, showing both nearest cards when tied. Numeric votes use actual values; custom labels use configured card order as an evenly spaced scale.
 - Starting another round clears the current votes.
 - Presenter controls belong to the presenter's authenticated browser identity, not to everyone who has the invitation link.
 
@@ -36,7 +36,7 @@ Build a live planning-poker web app for teams. Multiple independent sessions can
 5. Build the name-entry, session-creation, invitation, and join flows.
 6. Build the session screen with score-card editing, participant voting status, and presenter controls.
 7. Add real-time synchronization for membership, voting status, reveal state, and round changes.
-8. Add revealed results, numeric averages, and most-common-score summaries, including ties.
+8. Add revealed results and nearest-average-card final scores for numeric and ordered custom scales, including ties.
 9. Add responsive styling, loading and error states, reconnect handling, and accessible controls.
 10. Test session isolation, presenter permissions, hidden-vote privacy, voting and reveal flows, custom scores, and result calculations.
 11. Document local setup, Supabase configuration and migrations, required environment variables, and deployment to Netlify.
@@ -45,7 +45,7 @@ Build a live planning-poker web app for teams. Multiple independent sessions can
 
 - Score options are configured before voting; changing them requires starting a fresh round so existing votes are not invalidated silently.
 - Votes cannot be changed after reveal; the presenter starts a new round to resume voting.
-- Numeric averages are shown only when all submitted scores are numeric; mixed or nonnumeric results use score counts and most-common-score summaries.
+- Final scores are cards, not decimal averages. When all submitted scores are numeric, average their actual values and choose the nearest numeric card(s). Otherwise, average positions in the complete configured card order and choose the nearest card(s). Unvoted cards can be the final score; participants without votes are excluded.
 - Display names are labels, not proof of identity; permissions use anonymous authentication IDs.
 - Reloading the same browser preserves its anonymous identity where browser storage remains available. Cross-device presenter recovery is outside the MVP.
 

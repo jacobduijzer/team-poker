@@ -61,10 +61,10 @@ describe('session interface', () => {
     await user.click(screen.getByRole('button', { name: 'Reveal cards' }))
     expect(await screen.findByRole('heading', { name: 'Cards on the table.' })).toBeVisible()
     expect(within(cards).getByRole('button', { name: '3' })).toBeDisabled()
-    expect(screen.getByText('Average estimate')).toBeVisible()
+    expect(screen.getByText('Final score')).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'Start next round →' }))
     expect(await screen.findByText('Round 02')).toBeVisible()
-    expect(screen.queryByText('Average estimate')).not.toBeInTheDocument()
+    expect(screen.queryByText('Final score')).not.toBeInTheDocument()
     expect(screen.getByText('0 / 2 voted')).toBeVisible()
   })
 
@@ -73,6 +73,29 @@ describe('session interface', () => {
     const team = screen.getByRole('complementary', { name: 'At the table' })
     expect(within(team).getByText('✓ Voted')).toBeVisible()
     expect(within(team).queryByText('3')).not.toBeInTheDocument()
+  })
+
+  it('shows the nearest numeric card rather than the decimal average', async () => {
+    game.round.revealed = true
+    game.round.options = [{ id: 'one', label: '1' }, { id: 'two', label: '2' }, { id: 'four', label: '4' }]
+    game.participants = game.participants.map((person, index) => ({ ...person, hasVoted: true, optionId: index === 0 ? 'one' : 'four' }))
+    window.history.replaceState({}, '', `/s/${id}`)
+    render(<App />)
+    await screen.findByText('Final score')
+    const results = screen.getByRole('region', { name: 'A starting point for discussion.' })
+    expect(results.querySelector('.stat-value')).toHaveTextContent(/^2$/)
+    expect(within(results).queryByText('2.5')).not.toBeInTheDocument()
+  })
+
+  it('shows both closest custom cards for a tied final score', async () => {
+    game.round.revealed = true
+    game.round.options = ['S', 'M', 'L', 'XL'].map((label) => ({ id: label, label }))
+    game.participants = game.participants.map((person, index) => ({ ...person, hasVoted: true, optionId: index === 0 ? 'S' : 'XL' }))
+    window.history.replaceState({}, '', `/s/${id}`)
+    render(<App />)
+    await screen.findByText('Final score · tied')
+    const results = screen.getByRole('region', { name: 'A starting point for discussion.' })
+    expect(results.querySelector('.stat-value')).toHaveTextContent('M / L')
   })
 
   it('does not show presenter controls to another browser identity', async () => {
