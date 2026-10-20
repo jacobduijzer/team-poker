@@ -1,0 +1,137 @@
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import App from './App'
+import { request, watchSession } from './api'
+import type { PokerSession } from './types'
+
+vi.mock('./api', () => ({
+  supabase: {},
+  ensureIdentity: vi.fn().mockResolvedValue('presenter'),
+  request: vi.fn(),
+  watchSession: vi.fn((_id, _change, status) => { status(true); return vi.fn() }),
+}))
+
+const id = '11111111-1111-4111-8111-111111111111'
+let game: PokerSession
+
+beforeEach(() => {
+  window.history.replaceState({}, '', '/')
+  localStorage.clear()
+  game = {
+    id, presenterId: 'presenter', revision: 1,
+    round: { id: 'round-1', number: 1, revealed: false, options: [{ id: 'one', label: '1' }, { id: 'three', label: '3' }] },
+    participants: [{ id: 'presenter', name: 'Alex', hasVoted: false, optionId: null }, { id: 'other', name: 'Sam', hasVoted: true, optionId: null }],
+  }
+  vi.mocked(request).mockReset()
+  vi.mocked(request).mockImplementation(async (action, payload = {}) => {
+    if (action === 'vote') game = { ...game, revision: game.revision + 1, participants: game.participants.map((person) => person.id === 'presenter' ? { ...person, hasVoted: true, optionId: String(payload.optionId) } : person) }
+    if (action === 'reveal') game = { ...game, revision: game.revision + 1, round: { ...game.round, revealed: true }, participants: game.participants.map((person) => person.id === 'other' ? { ...person, optionId: 'three' } : person) }
+    if (action === 'next_round') game = { ...game, revision: game.revision + 1, round: { ...game.round, id: 'round-2', number: 2, revealed: false }, participants: game.participants.map((person) => ({ ...person, hasVoted: false, optionId: null })) }
+    return structuredClone(game)
+  })
+})
+
+async function openSession() {
+  window.history.replaceState({}, '', `/s/${id}`)
+  render(<App />)
+  await screen.findByRole('heading', { name: 'What’s your estimate?' })
+}
+
+describe('session interface', () => {
+  it('requires a display name and creates an invitation', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    expect(screen.getByRole('button', { name: 'Create session →' })).toBeDisabled()
+    await user.type(screen.getByLabelText('Your display name'), 'Alex')
+    await user.click(screen.getByRole('button', { name: 'Create session →' }))
+    expect(request).toHaveBeenCalledWith('create', { name: 'Alex', sessionId: null })
+    expect(await screen.findByLabelText('Invitation link')).toHaveValue(`${window.location.origin}/s/${id}`)
+    expect(window.location.pathname).toBe(`/s/${id}`)
+  })
+
+  it('votes, changes vote, reveals results and clears votes in a new round', async () => {
+    const user = userEvent.setup()
+    await openSession()
+    const cards = screen.getByRole('group', { name: 'Score cards' })
+    await user.click(within(cards).getByRole('button', { name: '1' }))
+    expect(await screen.findByText('Your card is in. You can change it until reveal.')).toBeVisible()
+    await user.click(within(cards).getByRole('button', { name: '3' }))
+    expect(request).toHaveBeenLastCalledWith('vote', { sessionId: id, roundId: 'round-1', optionId: 'three' })
+    await user.click(screen.getByRole('button', { name: 'Reveal cards' }))
+    expect(await screen.findByRole('heading', { name: 'Cards on the table.' })).toBeVisible()
+    expect(within(cards).getByRole('button', { name: '3' })).toBeDisabled()
+    expect(screen.getByText('Average estimate')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Start next round →' }))
+    expect(await screen.findByText('Round 02')).toBeVisible()
+    expect(screen.queryByText('Average estimate')).not.toBeInTheDocument()
+    expect(screen.getByText('0 / 2 voted')).toBeVisible()
+  })
+
+  it('shows status, not other people’s hidden values', async () => {
+    await openSession()
+    const team = screen.getByRole('complementary', { name: 'At the table' })
+    expect(within(team).getByText('✓ Voted')).toBeVisible()
+    expect(within(team).queryByText('3')).not.toBeInTheDocument()
+  })
+
+  it('does not show presenter controls to another browser identity', async () => {
+    game.presenterId = 'other'
+    await openSession()
+    expect(screen.queryByRole('button', { name: 'Reveal cards' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Configure cards' })).not.toBeInTheDocument()
+  })
+
+  it('asks a nonmember to join the invitation', async () => {
+    const user = userEvent.setup()
+    vi.mocked(request).mockRejectedValueOnce(new Error('Join this session first.'))
+    window.history.replaceState({}, '', `/s/${id}`)
+    render(<App />)
+    await screen.findByRole('heading', { name: 'Join the table' })
+    await user.type(screen.getByLabelText('Your display name'), 'Alex')
+    await user.click(screen.getByRole('button', { name: 'Join session →' }))
+    expect(request).toHaveBeenCalledWith('join', { sessionId: id, name: 'Alex' })
+    expect(await screen.findByRole('heading', { name: 'What’s your estimate?' })).toBeVisible()
+  })
+
+  it('edits, reorders, adds and removes score cards before applying', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    await openSession()
+    await user.click(screen.getByRole('button', { name: 'Configure cards' }))
+    const first = screen.getByLabelText('Card 1')
+    await user.clear(first)
+    await user.type(first, 'S')
+    await user.click(screen.getByRole('button', { name: 'Move card 1 down' }))
+    await user.click(screen.getByRole('button', { name: '+ Add card' }))
+    await user.type(screen.getByLabelText('Card 3'), 'XL')
+    await user.click(screen.getByRole('button', { name: 'Remove card 1' }))
+    await user.click(screen.getByRole('button', { name: 'Apply & start new round' }))
+    expect(request).toHaveBeenCalledWith('next_round', { sessionId: id, roundId: 'round-1', labels: ['S', 'XL'] })
+  })
+
+  it('rejects duplicate card labels in the editor', async () => {
+    const user = userEvent.setup()
+    await openSession()
+    await user.click(screen.getByRole('button', { name: 'Configure cards' }))
+    fireEvent.change(screen.getByLabelText('Card 2'), { target: { value: '1' } })
+    expect(screen.getByRole('button', { name: 'Apply & start new round' })).toBeDisabled()
+  })
+
+  it('surfaces failed writes without claiming success', async () => {
+    const user = userEvent.setup()
+    await openSession()
+    vi.mocked(request).mockRejectedValueOnce(new Error('Votes are locked after reveal.'))
+    await user.click(within(screen.getByRole('group', { name: 'Score cards' })).getByRole('button', { name: '1' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Votes are locked after reveal.')
+  })
+
+  it('refreshes after a real-time notification', async () => {
+    await openSession()
+    const callbacks = vi.mocked(watchSession).mock.calls
+    const change = callbacks[callbacks.length - 1][1]
+    game = { ...game, revision: 2, round: { ...game.round, revealed: true } }
+    change()
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Cards on the table.' })).toBeVisible())
+  })
+})
