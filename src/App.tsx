@@ -88,11 +88,13 @@ export default function App() {
     const timer = window.setInterval(sync, 10_000)
     const onVisible = () => { if (document.visibilityState === 'visible') sync() }
     window.addEventListener('online', sync)
+    window.addEventListener('focus', sync)
     document.addEventListener('visibilitychange', onVisible)
     return () => {
       stop()
       window.clearInterval(timer)
       window.removeEventListener('online', sync)
+      window.removeEventListener('focus', sync)
       document.removeEventListener('visibilitychange', onVisible)
       setConnected(false)
     }
@@ -257,7 +259,11 @@ function Results({ session }: { session: PokerSession }) {
     <div><p className="eyebrow">The big picture</p><h2 id="results-title">A starting point for discussion.</h2><p>{total} {total === 1 ? 'vote' : 'votes'} cast · {session.participants.length - total} didn’t vote</p></div>
     {total === 0 ? <p>No votes this round. Start another round to try again.</p> : <>
       <div className="result-summary"><div><span className="stat-value">{finalScores.map(({ label }) => label).join(' / ')}</span><span>{finalScores.length > 1 ? 'Final score · tied' : 'Final score'}</span><small>Closest card to the average. Custom labels use card order.</small></div></div>
-      <ul className="distribution" aria-label="Votes per score">{counts.map(({ id, label, count }) => <li key={id}><strong>{label}</strong><div className="bar-track"><div style={{ width: `${count / total * 100}%` }} /></div><span>{count} {count === 1 ? 'vote' : 'votes'}</span></li>)}</ul>
+      <ul className="distribution" aria-label="Votes per score">{counts.map(({ id, label, count }) => <li key={id}>
+        <div className="distribution-score"><strong>{label}</strong><div className="bar-track"><div style={{ width: `${count / total * 100}%` }} /></div><span>{count} {count === 1 ? 'vote' : 'votes'}</span></div>
+        {count > 0 && <ul className="score-voters" aria-label={`People who voted ${label}`}>{session.participants.filter((person) => person.optionId === id).map((person) => <li key={person.id}>{person.name}</li>)}</ul>}
+      </li>)}</ul>
     </>}
+    {session.participants.some((person) => !person.hasVoted) && <div className="non-voters"><h3>Didn’t vote</h3><ul>{session.participants.filter((person) => !person.hasVoted).map((person) => <li key={person.id}>{person.name}</li>)}</ul></div>}
   </section>
 }

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
@@ -73,6 +73,53 @@ describe('session interface', () => {
     const team = screen.getByRole('complementary', { name: 'At the table' })
     expect(within(team).getByText('✓ Voted')).toBeVisible()
     expect(within(team).queryByText('3')).not.toBeInTheDocument()
+    expect(screen.queryByRole('list', { name: 'People who voted 3' })).not.toBeInTheDocument()
+  })
+
+  it.each(['presenter', 'other'])('lists every voter under their revealed score with presenter %s', async (presenterId) => {
+    game.presenterId = presenterId
+    game.round.revealed = true
+    game.participants = [
+      { id: 'presenter', name: 'Alex', hasVoted: true, optionId: 'one' },
+      { id: 'other', name: 'Sam', hasVoted: true, optionId: 'three' },
+      { id: 'third', name: 'Taylor', hasVoted: true, optionId: 'three' },
+      { id: 'fourth', name: 'Robin', hasVoted: false, optionId: null },
+    ]
+    window.history.replaceState({}, '', `/s/${id}`)
+    render(<App />)
+    const ones = await screen.findByRole('list', { name: 'People who voted 1' })
+    expect(within(ones).getByText('Alex')).toBeVisible()
+    const threes = screen.getByRole('list', { name: 'People who voted 3' })
+    expect(within(threes).getByText('Sam')).toBeVisible()
+    expect(within(threes).getByText('Taylor')).toBeVisible()
+    const results = screen.getByRole('region', { name: 'A starting point for discussion.' })
+    expect(within(results).getByText('Didn’t vote')).toBeVisible()
+    expect(within(results).getByText('Robin')).toBeVisible()
+  })
+
+  it.each(['notification', 'focus', 'poll'])('shows all votes to a non-presenter after reveal via %s', async (trigger) => {
+    const interval = vi.spyOn(window, 'setInterval')
+    game.presenterId = 'other'
+    await openSession()
+    expect(screen.queryByRole('button', { name: 'Reveal cards' })).not.toBeInTheDocument()
+    game = {
+      ...game, revision: game.revision + 1, round: { ...game.round, revealed: true },
+      participants: game.participants.map((person) => ({ ...person, hasVoted: true, optionId: person.id === 'presenter' ? 'one' : 'three' })),
+    }
+    await act(async () => {
+      if (trigger === 'notification') {
+        const calls = vi.mocked(watchSession).mock.calls
+        calls[calls.length - 1][1]()
+      } else if (trigger === 'focus') {
+        window.dispatchEvent(new Event('focus'))
+      } else {
+        const poll = interval.mock.calls.find(([, delay]) => delay === 10_000)![0] as () => void
+        poll()
+      }
+    })
+    expect(within(await screen.findByRole('list', { name: 'People who voted 1' })).getByText('Alex')).toBeVisible()
+    expect(within(screen.getByRole('list', { name: 'People who voted 3' })).getByText('Sam')).toBeVisible()
+    interval.mockRestore()
   })
 
   it('shows the nearest numeric card rather than the decimal average', async () => {

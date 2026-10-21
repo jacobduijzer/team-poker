@@ -88,6 +88,12 @@ begin
   perform pg_temp.assert_true(view #>> '{participants,1,optionId}' = option2, 'reveal exposes all submitted values');
   perform pg_temp.expect_error('vote', jsonb_build_object('sessionId', sid, 'roundId', rid, 'optionId', option1), 'Votes are locked');
 
+  perform set_config('request.jwt.claim.sub', bob, true);
+  view := public.poker('snapshot', jsonb_build_object('sessionId', sid));
+  perform pg_temp.assert_true(view #>> '{round,revealed}' = 'true', 'non-presenter snapshot sees reveal');
+  perform pg_temp.assert_true(view #>> '{participants,0,optionId}' = option2 and view #>> '{participants,1,optionId}' = option2, 'non-presenter sees every revealed vote');
+  perform set_config('request.jwt.claim.sub', alice, true);
+
   perform pg_temp.expect_error('next_round', jsonb_build_object('sessionId', sid, 'roundId', rid, 'labels', '[]'::jsonb), 'Add at least one card');
   perform pg_temp.expect_error('next_round', jsonb_build_object('sessionId', sid, 'roundId', rid, 'labels', '["S"," S "]'::jsonb), 'unique label');
   perform pg_temp.expect_error('next_round', jsonb_build_object('sessionId', sid, 'roundId', rid, 'labels', '[1]'::jsonb), 'must be text');

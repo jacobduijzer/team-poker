@@ -11,7 +11,7 @@ Live planning poker without account registration. A presenter creates a table, s
 - Presenter-only reveal, round reset, and ordered score-card configuration.
 - Numeric and custom score labels; votes can change until reveal.
 - Private vote values, shared voting status, and real-time revealed results.
-- Score counts and a final score snapped to the card nearest the average, including ties.
+- Revealed results list voter names under each score, identify non-voters, and show a final score snapped to the card nearest the average, including ties.
 - Responsive keyboard-accessible interface, connection status, and polling recovery.
 
 ### Final scores
