@@ -39,6 +39,12 @@ async function openSession() {
 }
 
 describe('session interface', () => {
+  it('credits the creator in the footer', async () => {
+    render(<App />)
+    expect(within(screen.getByRole('contentinfo')).getByText('TeamPoker, created by Jacob Duijzer')).toBeVisible()
+    await screen.findByRole('button', { name: 'Create session →' })
+  })
+
   it('requires a display name and creates an invitation', async () => {
     const user = userEvent.setup()
     render(<App />)

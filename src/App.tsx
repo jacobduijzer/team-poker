@@ -216,7 +216,7 @@ export default function App() {
         {error && <div className="error-message" role="alert"><strong>Couldn’t complete that.</strong> {error}<button className="text-button" onClick={() => { setError(''); if (sessionId) void refresh(sessionId) }}>Retry</button></div>}
         <p className="notice" role="status">{notice}</p>
       </main>
-      <footer>Built for better conversations. <span>TeamPoker</span></footer>
+      <footer>Built because Neil does not want to pay for a license. <span>TeamPoker, created by Jacob Duijzer</span></footer>
     </div>
   )
 }
